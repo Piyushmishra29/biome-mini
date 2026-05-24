@@ -8,9 +8,9 @@ except ImportError:
 
 PI_URL = "http://192.168.0.114:8000/api/mq"
 MSG_URL = "http://192.168.0.114:8000/api/oled_msg"
-# Mac LAN IP changes on DHCP -- update when moving networks.
-MAC_PLANT_URL = "http://192.168.0.106:3020/api/ingest"
-PLANT_ID = "monstera-1"
+# Hosted on the Pi now (always-on, static LAN IP). Same hostname as PI_URL above.
+MAC_PLANT_URL = "http://192.168.0.114:3020/api/ingest"
+PLANT_ID = "pothos-1"
 READ_PERIOD_MS = 200
 POST_EVERY_N = 25
 PLANT_POST_OFFSET = 12  # offset tick so Mac POST doesn't collide with Pi POST

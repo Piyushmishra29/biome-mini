@@ -1,9 +1,10 @@
 ```
  ╔══════════════════════════════════════════════════════════════╗
  ║                                                              ║
- ║   E S P 3 2 - T E C H - H U D                                ║
+ ║   B I O M E - M I N I                                        ║
  ║                                                              ║
- ║   a 128×64 OLED dashboard for plants, air, and you           ║
+ ║   a tiny ESP32 watching the air I breathe                    ║
+ ║   and the plant I'm trying not to kill                       ║
  ║                                                              ║
  ╚══════════════════════════════════════════════════════════════╝
 ```
@@ -14,7 +15,9 @@
 ![Power](https://img.shields.io/badge/Power-USB--C%205V-7B68EE?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-22863a?style=flat-square)
 
-> A self-contained environmental monitor on an ESP32-S3 dev board. Reads air-quality (MQ-135) and soil moisture (YL-69), renders a real-time "tech HUD" on a tiny mono OLED, and POSTs telemetry to a Raspberry Pi + a Mac for graphing. Survives hangs via a hardware watchdog and shows a boot splash within 100 ms of power-on.
+> A self-contained environmental monitor on an ESP32-S3 dev board. Reads air-quality (MQ-135) and soil moisture (YL-69), renders a real-time HUD on a tiny mono OLED, and POSTs telemetry to two endpoints on a Raspberry Pi: an air-quality logger AND a public web dashboard for the plant. Survives hangs via a hardware watchdog and shows a boot splash within 100 ms of power-on.
+>
+> The plant dashboard is **live and public**: [`piyushpi.tail641fa8.ts.net:10000`](https://piyushpi.tail641fa8.ts.net:10000)
 
 ---
 
@@ -59,19 +62,21 @@ flowchart LR
         MAIN[main.py loop<br/>5 Hz · WDT 15s]
     end
 
-    PI[Raspberry Pi<br/>weather-web :8000]
-    MAC[Mac dashboard<br/>plant-happy :3020]
+    PI1[Raspberry Pi<br/>weather-web :8000]
+    PI2[Raspberry Pi<br/>plant-happy :3020]
+    PUB((Public web<br/>tail641fa8.ts.net:10000))
     HER[Hermes Agent<br/>Honey persona]
     WAPP[WhatsApp]
 
     MQ --> MAIN
     SOIL --> MAIN
     MAIN --> OLED
-    MAIN -->|POST /api/mq every 5s| PI
-    MAIN -->|POST /api/ingest every 5s| MAC
+    MAIN -->|POST /api/mq every 5s| PI1
+    MAIN -->|POST /api/ingest every 5s| PI2
+    PI2 -- Tailscale Funnel --> PUB
     WAPP --> HER
-    HER -->|pi-display "text"| PI
-    PI -.GET /api/oled_msg.-> MAIN
+    HER -->|pi-display "text"| PI1
+    PI1 -.GET /api/oled_msg.-> MAIN
 ```
 
 ---
@@ -161,16 +166,24 @@ Content-Type: application/json
 
 The Pi rolls these into a 24h history file and renders them as inline-SVG sparklines on its own dashboard.
 
-### 2. Mac plant endpoint
+### 2. Plant Happy endpoint (also on the Pi)
 
-Every 5 s (offset 2.4 s from the Pi POST so they don't collide):
+Every 5 s (offset 2.4 s from the air POST so they don't collide):
 
 ```http
-POST http://<mac>:3020/api/ingest
+POST http://<pi>:3020/api/ingest
 Content-Type: application/json
 
-{"plant_id": "monstera-1", "soil_raw": 22210, "soil_pct": 98.5}
+{"plant_id": "pothos-1", "soil_raw": 22210, "soil_pct": 42.5}
 ```
+
+Lands in a Next.js dashboard (`plant-happy`) running as `plant-happy.service` on the Pi. The Pi exposes it publicly via Tailscale Funnel:
+
+[**`https://piyushpi.tail641fa8.ts.net:10000`**](https://piyushpi.tail641fa8.ts.net:10000)
+
+The dashboard is editorially designed (Vogue-style cover spread with lush plant illustration) and dedicated to a friend. Mood vocabulary maps the moisture % to human words: FLOURISHING, ASKING POLITELY, PARCHED, OVERINDULGED, DROWNING, RESTING. There's a "last watered" auto-detector that lights up when soil_pct jumps >15 in under 10 minutes.
+
+> If the physical sensor is being recalibrated or broken, flip `USE_SYNTHETIC_SOIL = True` in `main.py` — the ESP32 emits a 4-min sine wave 0–100 % so the dashboard pipeline stays exercisable end-to-end.
 
 ### 3. Inbound message overlay
 
@@ -268,6 +281,6 @@ MIT — see [LICENSE](LICENSE).
 ```
                     ┌─────────────────────────┐
                     │  built on a tiny board, │
-                    │  pushing tiny pixels    │
+                    │  watching a tiny biome  │
                     └─────────────────────────┘
 ```

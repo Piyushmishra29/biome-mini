@@ -47,15 +47,24 @@ def read_mq():
     v = raw * 3.3 / 65535
     return raw, v * 1000.0, v
 
+def oled_reinit():
+    # Full SSD1306 init sequence -- only path that recovers a deeply-stuck
+    # panel (e.g. after a power dip or controller reset). Brief flicker.
+    global oled
+    try:
+        oled = ssd1306.SSD1306_I2C(128, 64, i2c)
+    except Exception:
+        pass
+
 def oled_kick():
-    # Defensive re-wake: I2C drops on this board put the OLED into an unknown
-    # state (often display-off). poweron()+contrast() are cheap (3 I2C bytes)
-    # and self-heal a dark screen on the next draw frame.
+    # Defensive per-frame wake: cheap poweron+contrast (3 I2C bytes).
+    # Handles the common case where display has gone into power-save.
+    # On exception, escalates to a full re-init.
     try:
         oled.poweron()
         oled.contrast(255)
     except Exception:
-        pass
+        oled_reinit()
 
 def read_soil():
     samples = [soil_adc.read_u16() for _ in range(16)]
@@ -276,6 +285,12 @@ while True:
         soil_raw, soil_pct = read_soil_synth() if USE_SYNTHETIC_SOIL else read_soil()
         idx_smooth += (idx - idx_smooth) * 0.30
         soil_smooth += (soil_pct - soil_smooth) * 0.30
+
+        # Every 10s, force-reinit the OLED (covers the case where the panel
+        # silently drops state but I2C ACKs still succeed -- poweron alone
+        # won't recover that, only the full init sequence does).
+        if tick % 50 == 7:
+            oled_reinit()
 
         if tick % POST_EVERY_N == PLANT_POST_OFFSET and sta.isconnected():
             post_plant(soil_raw, soil_pct)

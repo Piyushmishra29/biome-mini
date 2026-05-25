@@ -47,6 +47,16 @@ def read_mq():
     v = raw * 3.3 / 65535
     return raw, v * 1000.0, v
 
+def oled_kick():
+    # Defensive re-wake: I2C drops on this board put the OLED into an unknown
+    # state (often display-off). poweron()+contrast() are cheap (3 I2C bytes)
+    # and self-heal a dark screen on the next draw frame.
+    try:
+        oled.poweron()
+        oled.contrast(255)
+    except Exception:
+        pass
+
 def read_soil():
     samples = [soil_adc.read_u16() for _ in range(16)]
     raw = sum(samples) // len(samples)
@@ -123,6 +133,7 @@ def wrap_text(text, max_chars):
     return out
 
 def draw_message(text, ttl):
+    oled_kick()
     oled.fill(0)
     oled.rect(0, 0, 128, 64, 1)
     # Top: MSG label + TTL bar + seconds
@@ -186,6 +197,7 @@ def short_cat(v, base):
     return "HVY!"
 
 def draw(v, base, idx, soil_pct, status, blink):
+    oled_kick()
     oled.fill(0)
     # === TOP STATUS y=0..8 ===
     draw_inv_pill(0, 0, "AIR")

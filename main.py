@@ -23,7 +23,18 @@ BASELINE_WINDOW = 240
 USE_SYNTHETIC_SOIL = False
 
 i2c = I2C(0, sda=Pin(10), scl=Pin(11), freq=400000)
-oled = ssd1306.SSD1306_I2C(128, 64, i2c)
+# OLED init can ETIMEDOUT if I2C is momentarily flaky at boot. Retry up to 5
+# times with backoff; if it still fails, set oled=None and let the main loop's
+# oled_reinit() recover it later. Never let a bad OLED prevent main.py from
+# entering the loop (sensor reading + POST must keep working regardless).
+oled = None
+for _attempt in range(5):
+    try:
+        oled = ssd1306.SSD1306_I2C(128, 64, i2c)
+        break
+    except Exception as _e:
+        print("OLED init attempt {} failed: {}".format(_attempt + 1, _e))
+        time.sleep_ms(300)
 adc = ADC(Pin(4), atten=ADC.ATTN_11DB)
 soil_adc = ADC(Pin(5), atten=ADC.ATTN_11DB)
 sta = network.WLAN(network.STA_IF)
@@ -50,16 +61,20 @@ def read_mq():
 def oled_reinit():
     # Full SSD1306 init sequence -- only path that recovers a deeply-stuck
     # panel (e.g. after a power dip or controller reset). Brief flicker.
+    # Also the recovery path when initial module-load init failed.
     global oled
     try:
         oled = ssd1306.SSD1306_I2C(128, 64, i2c)
     except Exception:
-        pass
+        oled = None
 
 def oled_kick():
     # Defensive per-frame wake: cheap poweron+contrast (3 I2C bytes).
     # Handles the common case where display has gone into power-save.
-    # On exception, escalates to a full re-init.
+    # On exception, escalates to a full re-init. Tolerates oled=None.
+    if oled is None:
+        oled_reinit()
+        return
     try:
         oled.poweron()
         oled.contrast(255)
@@ -143,6 +158,8 @@ def wrap_text(text, max_chars):
 
 def draw_message(text, ttl):
     oled_kick()
+    if oled is None:
+        return
     oled.fill(0)
     oled.rect(0, 0, 128, 64, 1)
     # Top: MSG label + TTL bar + seconds
@@ -207,6 +224,8 @@ def short_cat(v, base):
 
 def draw(v, base, idx, soil_pct, status, blink):
     oled_kick()
+    if oled is None:
+        return
     oled.fill(0)
     # === TOP STATUS y=0..8 ===
     draw_inv_pill(0, 0, "AIR")

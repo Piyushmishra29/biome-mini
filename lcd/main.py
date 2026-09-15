@@ -24,6 +24,6 @@ for i in range(10, 0, -1):
     time.sleep(0.5)
 
 lcd.clear()
-lcd.putstr("Pi2.4 OK")
+lcd.putstr("WiFi OK")
 lcd.move_to(0, 1)
 lcd.putstr("192.168.0.115")

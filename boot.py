@@ -2,8 +2,8 @@ import network, time
 from machine import Pin, I2C
 import ssd1306
 
-SSID = "Pi2.4"
-PASS = "81481187"
+# WiFi credentials live in secrets.py (gitignored). Copy secrets_example.py.
+from secrets import SSID, PASS
 
 # Light the OLED immediately so the screen is alive within ~100ms of power-on,
 # even before main.py is reached. Catches any I2C/wiring failures right away.

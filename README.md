@@ -114,7 +114,7 @@ flowchart LR
 
 | File | Role |
 |---|---|
-| [`boot.py`](boot.py) | WiFi connect with retry. Lights the OLED with a `BOOT / WiFi:Pi2.4 / connecting…` splash within 100 ms of power-on. |
+| [`boot.py`](boot.py) | WiFi connect with retry. Lights the OLED with a `BOOT / WiFi:<ssid> / connecting…` splash within 100 ms of power-on. |
 | [`main.py`](main.py) | The dashboard loop. Reads sensors, smooths with EMA, renders the HUD, POSTs telemetry, polls for incoming messages. WDT-guarded. |
 | [`smoke_test.py`](smoke_test.py) | 60-second standalone OLED + MQ-135 graph used during bring-up. |
 | [`lcd/`](lcd) | Earlier abandoned attempt at driving an HD44780 16×2 LCD via a PCF8574 backpack — kept for reference. |
@@ -145,7 +145,7 @@ flowchart TD
 Two safeguards keep the screen from ever freezing:
 
 1. **Hardware watchdog** — `WDT(timeout=15000)` in `main.py`. If the loop hangs >15s for any reason (broken POST, network deadlock, parse error in a hot path), the chip hard-resets. Long enough to absorb a slow HTTP timeout, short enough that no user-visible freeze lasts.
-2. **Boot splash in `boot.py`** — initialises the OLED *before* WiFi, so a `BOOT / WiFi:Pi2.4 / connecting…` panel is on screen within ~100 ms of power-on. After WDT reset, the user sees the splash returning instead of a dark screen.
+2. **Boot splash in `boot.py`** — initialises the OLED *before* WiFi, so a `BOOT / WiFi:<ssid> / connecting…` panel is on screen within ~100 ms of power-on. After WDT reset, the user sees the splash returning instead of a dark screen.
 
 The main loop also wraps the entire body in `try / except Exception` (with `KeyboardInterrupt` re-raised so `mpremote` REPL takeover still works) and increments an on-screen `C###` crash counter so a buggy render path can't silently kill the network heartbeat.
 
@@ -215,11 +215,12 @@ mpremote connect auto mip install ssd1306
 
 ### Edit WiFi credentials
 
-In `boot.py`, set `SSID` and `PASS`.
+Copy `secrets_example.py` to `secrets.py` and set `SSID` and `PASS`. `secrets.py` is gitignored.
 
 ### Push the files
 
 ```bash
+mpremote connect auto cp secrets.py :secrets.py
 mpremote connect auto cp boot.py :boot.py
 mpremote connect auto cp main.py :main.py
 mpremote connect auto reset
